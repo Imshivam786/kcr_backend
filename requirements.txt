@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+opencv-python-headless
+numpy
+pillow
+pydantic-settings
+# OCR libs - try to install paddleocr (will require paddlepaddle). If installation fails
+# you can still work with easyocr only; see instructions below.
+paddleocr; platform_system!="Windows"  # try installing on non-Windows automatically
+easyocr
+# try downloading fallback ocr model
+# pip install paddlepaddle -f https://www.paddlepaddle.org.cn/whl/windows/mkl/avx/stable.html
+# pip install paddleocr
