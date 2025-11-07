@@ -1,45 +1,43 @@
+# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-import logging
+from fastapi.staticfiles import StaticFiles
+from config import settings
+from database import init_db
+from ocr.reader import init_reader  # Add this import
 
-from config import settings  # new import
+# Import routers
+from routers import cases, analysis, upload
 
-logger = logging.getLogger("uvicorn.error")
+app = FastAPI(title="Kannada OCR API")
 
-app = FastAPI(title="KCR Backend")
+# Initialize database and OCR reader on startup
+@app.on_event("startup")
+def startup_event():
+    init_db()
+    print("✓ Database initialized")
+    
+    # Initialize OCR reader
+    init_reader(gpu=settings.MODEL_USE_GPU)
+    print("✓ OCR reader initialized")
 
-# CORS using settings
-origins = settings.get_cors_origins()
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins or ["*"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ensure upload dir exists
-UPLOAD_DIR = settings.UPLOAD_PATH
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# Include routers
+app.include_router(cases.router)  # New case-based endpoints
+app.include_router(analysis.router, prefix="/legacy")  # Keep old endpoints for backward compatibility
+app.include_router(upload.router, prefix="/legacy")  # Keep old upload for backward compatibility
 
-# mount static files
-from fastapi.staticfiles import StaticFiles
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Mount uploads directory for serving files (legacy support)
+app.mount("/uploads", StaticFiles(directory=str(settings.UPLOAD_PATH)), name="uploads")
 
-# include routers (routers import config, not main)
-from routers import upload, analysis
-app.include_router(upload.router, prefix="", tags=["upload"])
-app.include_router(analysis.router, prefix="", tags=["analysis"])
-
-from ocr.reader import init_reader, shutdown_reader
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Initializing OCR reader...")
-    init_reader(gpu=settings.MODEL_USE_GPU)
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down OCR reader...")
-    shutdown_reader()
+@app.get("/")
+def read_root():
+    return {"message": "Kannada OCR API", "version": "2.0"}
